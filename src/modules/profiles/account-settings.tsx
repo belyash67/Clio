@@ -1,0 +1,20 @@
+"use client";
+import { I18nText } from "@/components/i18n";
+
+import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
+import { savePreferences } from "./settings-actions";
+
+export function AccountSettings({username,language,notificationsEnabled,section}:{username:string;language:string;notificationsEnabled:boolean;section?:"username"|"email"|"preferences"|"delete"}) {
+  const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");
+  async function run(task:()=>Promise<{error?:unknown}|void>,success:string) {
+    setBusy(true);setMessage("");try{const result=await task();setMessage(result?.error?"Не удалось выполнить действие. Проверь данные и попробуй снова.":success);}catch{setMessage("Сервер недоступен. Попробуй позже.");}finally{setBusy(false);}
+  }
+  return <>
+    {(!section||section==="username")&&<section><h2>Username</h2><form onSubmit={event=>{event.preventDefault();const data=new FormData(event.currentTarget);void run(()=>authClient.updateUser({username:String(data.get("username")).trim().toLowerCase()}),"Username изменён.");}}><label className="field"><I18nText text={"Уникальное имя"}/><input name="username" defaultValue={username} minLength={3} maxLength={30} pattern="[A-Za-z0-9_]+" required/></label><button className="button secondary" disabled={busy}><I18nText text={"Изменить username"}/></button></form></section>}
+    {(!section||section==="email")&&<section><h2>Email</h2><form onSubmit={event=>{event.preventDefault();const data=new FormData(event.currentTarget);void run(()=>authClient.changeEmail({newEmail:String(data.get("email")).trim().toLowerCase(),callbackURL:"/profile"}),"Проверь письма на текущем и новом адресах и подтверди изменение.");}}><label className="field"><I18nText text={"Новый email"}/><input name="email" type="email" required autoComplete="email"/></label><button className="button secondary" disabled={busy}><I18nText text={"Запросить смену email"}/></button></form></section>}
+    {(!section||section==="preferences")&&<section><h2><I18nText text={"Предпочтения"}/></h2><form onSubmit={event=>{event.preventDefault();const data=new FormData(event.currentTarget);void run(async()=>{const result=await savePreferences({language:String(data.get("language")),notificationsEnabled:data.has("notificationsEnabled")});if(!result.ok)return {error:true};window.location.reload();},"Настройки сохранены.");}}><label className="field"><I18nText text={"Язык интерфейса"}/><select name="language" defaultValue={language}><option value="ru"><I18nText text={"Русский"}/></option><option value="en">English</option><option value="de">Deutsch</option></select></label><label className="check-field"><input name="notificationsEnabled" type="checkbox" defaultChecked={notificationsEnabled}/><I18nText text={"Получать внутренние уведомления"}/></label><button className="button secondary" disabled={busy}><I18nText text={"Сохранить предпочтения"}/></button></form></section>}
+    {(!section||section==="delete")&&<section><h2><I18nText text={"Удаление аккаунта"}/></h2><p className="muted"><I18nText text={"Будут удалены твои библиотека, оценки, рецензии, комментарии и коллекции. Общий каталог останется."}/></p><form onSubmit={event=>{event.preventDefault();const data=new FormData(event.currentTarget);if(String(data.get("confirmation"))!=="DELETE")return;void run(async()=>{const result=await authClient.deleteUser({password:String(data.get("password")),callbackURL:"/"});if(!result.error)window.location.replace("/");return result;},"Аккаунт удалён.");}}><label className="field"><I18nText text={"Текущий пароль"}/><input name="password" type="password" required autoComplete="current-password"/></label><label className="field"><I18nText text={"Для подтверждения введи DELETE"}/><input name="confirmation" pattern="DELETE" required/></label><button className="button danger" disabled={busy}><I18nText text={"Удалить мой аккаунт"}/></button></form></section>}
+    {message&&<p className="feedback" role="status"><I18nText text={message}/></p>}
+  </>;
+}

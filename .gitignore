@@ -1,0 +1,45 @@
+node_modules/
+.runtime/
+.next/
+.next-e2e/
+.e2e-output/
+test-results/
+playwright-report/
+out/
+coverage/
+*.tsbuildinfo
+.env*
+!.env.example
+*.log
+.DS_Store
+
+# Private operational notes (kept locally; not application source).
+docs/legal/
+docs/month-launch.md
+
+# Credentials and database exports must never be published.
+.npmrc
+.pgpass
+.netrc
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*.dump
+*.backup
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+*.enc
+*.dpapi
+backups/
+dumps/
+
+# Local archives can contain secrets even when their original files are ignored.
+*.zip
+*.tar
+*.tgz
+*.tar.gz
