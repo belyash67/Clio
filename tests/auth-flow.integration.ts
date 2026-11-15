@@ -4,6 +4,7 @@ import { Client } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { expect, it, vi } from "vitest";
 import * as schema from "../src/server/db/schema";
+import { PRIVACY_VERSION, PROCESSING_CONSENT, TRANSFER_CONSENT } from "../src/lib/privacy";
 
 const state = vi.hoisted(() => ({ db: null as unknown, messages: [] as { url: string; purpose: string }[] }));
 vi.mock("server-only", () => ({}));
@@ -38,8 +39,23 @@ it("полный auth-сценарий работает в отдельной Po
     }));
     const email = "auth-regression@example.invalid";
     const password = randomUUID();
-    const registered = await call("/api/auth/sign-up/email", { name: "Regression", username: "auth_regression", email, password, role:"admin", personalBadge:true, callbackURL: "/login" });
+    const accepted = { processingConsent: true, transferConsent: true, privacyVersion: PRIVACY_VERSION };
+    for (const invalid of [{}, { ...accepted, processingConsent: false }, { ...accepted, transferConsent: "true" }, { ...accepted, privacyVersion: "old" }]) {
+      await client.query('DELETE FROM rate_limits');
+      const rejected = await call("/api/auth/sign-up/email", { name: "Regression", username: "auth_regression", email, password, ...invalid });
+      expect(rejected.status).toBe(400);
+      expect((await rejected.json()).code).toBe("PRIVACY_CONSENT_REQUIRED");
+      expect((await client.query('SELECT count(*)::int AS n FROM users')).rows[0].n).toBe(0);
+      expect(state.messages).toHaveLength(0);
+    }
+    await client.query('DELETE FROM rate_limits');
+    const registered = await call("/api/auth/sign-up/email", { name: "Regression", username: "auth_regression", email, password, role:"admin", personalBadge:true, callbackURL: "/login", ...accepted });
     expect(registered.status).toBe(200);
+    const evidence = (await client.query('SELECT consent_version, consent_accepted_at, consent_snapshot FROM users')).rows[0];
+    expect(evidence.consent_version).toBe(PRIVACY_VERSION);
+    expect(evidence.consent_accepted_at).toBeInstanceOf(Date);
+    expect(evidence.consent_snapshot).toContain(PROCESSING_CONSENT);
+    expect(evidence.consent_snapshot).toContain(TRANSFER_CONSENT);
     expect(state.messages.filter((item) => item.purpose === "verify")).toHaveLength(1);
     const beforeVerify = await call("/api/auth/sign-in/email", { email, password });
     expect(beforeVerify.status).toBe(403);
@@ -55,6 +71,8 @@ it("полный auth-сценарий работает в отдельной Po
     expect(cookie.length).toBeGreaterThan(0);
     const session = await call("/api/auth/get-session", undefined, cookie);
     expect((await session.json()).user.emailVerified).toBe(true);
+    expect((await call("/api/auth/update-user", { consentVersion: "forged", consentAcceptedAt: "2000-01-01", consentSnapshot: "forged" }, cookie)).status).toBe(400);
+    expect((await client.query('SELECT consent_snapshot FROM users')).rows[0].consent_snapshot).toBe(evidence.consent_snapshot);
     const selfBadge=await call("/api/auth/update-user",{name:"Regression",personalBadge:true,role:"admin"},cookie);
     expect(selfBadge.status).toBe(400);
     expect((await client.query('SELECT personal_badge FROM users')).rows[0].personal_badge).toBe(false);

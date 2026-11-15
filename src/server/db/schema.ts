@@ -15,6 +15,9 @@ export const user = pgTable("users", {
   bio: text("bio").default("").notNull(),
   blockedAt: date("blocked_at"),
   personalBadge: boolean("personal_badge").notNull().default(false),
+  consentVersion: text("consent_version"),
+  consentAcceptedAt: date("consent_accepted_at"),
+  consentSnapshot: text("consent_snapshot"),
   createdAt: date("created_at").defaultNow().notNull(),
   updatedAt: date("updated_at").defaultNow().notNull(),
 }, (table) => [

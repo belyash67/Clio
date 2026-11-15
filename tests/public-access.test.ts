@@ -37,6 +37,8 @@ describe("пауза публичного сбора данных", () => {
       expect(page.status).toBe(503); expect(page.headers.get("x-middleware-rewrite")).toBeNull();
       expect(await page.text()).toBe(maintenanceHtml);
       expect(maintenanceHtml).not.toContain("do-not-forward");
+      expect(proxy(new NextRequest("https://clio.example/privacy")).headers.get("x-middleware-next")).toBe("1");
+      expect(proxy(new NextRequest("https://clio.example/privacy", { method: "POST" })).status).toBe(503);
     } finally { vi.unstubAllEnvs(); }
   });
   it("показывает одинаковый текст паузы в статической и серверной версиях", async () => {

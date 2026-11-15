@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { registrationSchema } from "@/lib/validation";
+import { PrivacyCheckboxes } from "@/components/privacy-checkboxes";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { forgetVerificationEmail, getVerificationEmail, rememberVerificationEmail, subscribeVerificationEmail } from "@/lib/pending-verification";
 
@@ -37,10 +38,12 @@ export function AuthForm({ mode, ready, token }: { mode: Mode; ready: boolean; t
       if (mode === "register") {
         const parsed = registrationSchema.safeParse(Object.fromEntries(values));
         if (!parsed.success) { setMessage(parsed.error.issues[0]?.message ?? "Проверь поля формы."); return; }
-        const result = await authClient.signUp.email({
+        const payload = {
           name: parsed.data.name, username: parsed.data.username, email: parsed.data.email,
           password: parsed.data.password, callbackURL: "/login?verified=1",
-        });
+          processingConsent: values.get("processingConsent") === "on", transferConsent: values.get("transferConsent") === "on", privacyVersion: field("privacyVersion"),
+        };
+        const result = await authClient.signUp.email(payload);
         error = result.error;
         if (!error) { rememberVerificationEmail(parsed.data.email); router.push("/verify"); return; }
       } else if (mode === "login") {
@@ -76,7 +79,7 @@ export function AuthForm({ mode, ready, token }: { mode: Mode; ready: boolean; t
   }
 
   return <div className="auth-layout"><Link href="/" className="eyebrow">← CLIO</Link><h1><I18nText text={titles[mode]}/></h1>
-    {mode === "register" && <p><I18nText text={"Сохрани место для своей истории кино."}/></p>}
+    {mode === "register" && <p>Учебный проект для друзей из Кыргызстана. Приложение и база находятся во Франции. Для участников от 14 лет.</p>}
     {mode === "verify" && <><p><I18nText text={"Для входа подтверди email по ссылке из письма."}/>{" "}{rememberedEmail && <><I18nText text={"Адрес подтверждения:"}/>{" "}<strong>{rememberedEmail}</strong>. </>}<I18nText text={"Проверь также папку «Спам». Если письма нет, отправь его повторно."}/></p>{rememberedEmail && <button type="button" className="text-link" disabled={pending} onClick={() => { forgetVerificationEmail(); setMessage(""); }}><I18nText text={"Указать email другого аккаунта"}/></button>}</>}
     {!ready && <p className="notice" role="status"><I18nText text={"Вход и регистрация пока недоступны: база данных и почта ещё не настроены."}/></p>}
     <form onSubmit={submit} aria-busy={pending}>
@@ -84,9 +87,11 @@ export function AuthForm({ mode, ready, token }: { mode: Mode; ready: boolean; t
       {mode !== "reset" && !(mode === "verify" && rememberedEmail) && <label className="field">Email<input type="email" name="email" required autoComplete="email" maxLength={254} /></label>}
       {(mode === "register" || mode === "login" || mode === "reset") && <label className="field"><I18nText text={"Пароль"}/><input type="password" name="password" required minLength={mode === "login" ? 1 : 12} maxLength={128} autoComplete={mode === "login" ? "current-password" : "new-password"} />{mode !== "login" && <span className="muted"><I18nText text={"От 12 до 128 символов."}/></span>}</label>}
       {(mode === "register" || mode === "reset") && <label className="field"><I18nText text={"Повтори пароль"}/><input type="password" name="confirmPassword" required minLength={12} maxLength={128} autoComplete="new-password" /></label>}
+      {mode === "register" && <PrivacyCheckboxes/>}
       {message && <div className="feedback" role="status"><I18nText text={message}/></div>}
       <button className="button primary" disabled={!ready || pending || cooldown > 0 || (mode === "reset" && !token)}><I18nText text={pending ? "Подожди…" : cooldown > 0 ? `Повторить через ${cooldown} с` : labels[mode]}/></button>
     </form>
     {mode === "login" ? <><p><Link href="/forgot-password"><I18nText text={"Забыли пароль?"}/></Link> · <Link href="/verify"><I18nText text={"Подтвердить email"}/></Link></p><p><I18nText text={"Первый раз здесь?"}/>{" "}<Link href="/register"><I18nText text={"Создать аккаунт"}/></Link></p></> : <p><Link href="/login"><I18nText text={"Перейти ко входу"}/></Link></p>}
+    <p className="muted"><Link href="/privacy">Политика конфиденциальности</Link></p>
   </div>;
 }

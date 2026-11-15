@@ -1,4 +1,25 @@
 import {test,expect,login,openAction} from "./fixtures";
+test("согласия: регистрация, прежний аккаунт и отзыв",async({page,qa})=>{
+  await page.goto("/register");
+  for(const name of ["processingConsent","transferConsent"]){
+    const box=page.locator(`input[name="${name}"]`); await expect(box).not.toBeChecked(); await expect(box).toHaveAttribute("required","");
+  }
+  await page.goto("/privacy"); await expect(page.locator("h1")).toHaveText("Политика конфиденциальности");
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await login(page,qa.other); await page.goto("/settings?section=privacy");
+  await expect(page.getByText("Для этого аккаунта подтверждение ещё не записано.",{exact:false})).toBeVisible();
+  await page.locator('[name="processingConsent"]').check(); await page.locator('[name="transferConsent"]').check();
+  await page.getByRole("button",{name:"Подтвердить",exact:true}).click();
+  await expect(page.getByText("Подтверждена версия",{exact:false})).toBeVisible();
+  const proof=await qa.db.query("select consent_snapshot from users where id=$1",[qa.other.id]); expect(proof.rows[0].consent_snapshot).toContain("alwaysdata");
+  await page.getByRole("button",{name:"Отозвать согласие",exact:true}).click();
+  await page.locator('[name="confirmWithdrawal"]').check();
+  await page.getByRole("button",{name:"Отозвать согласие и удалить аккаунт",exact:true}).click();
+  await expect(page).toHaveURL(/\/privacy\?withdrawn=1$/);
+  expect((await qa.db.query("select id from users where id=$1",[qa.other.id])).rowCount).toBe(0);
+  expect((await qa.db.query("select id from users where id=$1",[qa.owner.id])).rowCount).toBe(1);
+  await page.goto("/profile"); await expect(page).toHaveURL(/\/login/);
+});
 test("мобильный интерфейс: пять вкладок, панели, настройки и PWA",async({page,context,qa},testInfo)=>{
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   await login(page,qa.owner);

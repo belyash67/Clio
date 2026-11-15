@@ -9,6 +9,6 @@ export function proxy(request: NextRequest) {
     return NextResponse.json({ message: "Работа с аккаунтами временно приостановлена." }, { status: 503, headers });
   }
   const pathname = request.nextUrl.pathname;
-  if (pathname === "/maintenance/index.html" || pathname === "/favicon.ico" || pathname.startsWith("/_next/static/") || pathname.startsWith("/icons/")) return NextResponse.next();
+  if (pathname === "/privacy" || pathname === "/maintenance/index.html" || pathname === "/favicon.ico" || pathname.startsWith("/_next/static/") || pathname.startsWith("/icons/")) return NextResponse.next();
   return new NextResponse(maintenanceHtml, { status: 503, headers: { ...headers, "Content-Type": "text/html; charset=utf-8", "Referrer-Policy": "no-referrer", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" } });
 }

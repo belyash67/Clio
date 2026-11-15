@@ -17,6 +17,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return <html lang={language} suppressHydrationWarning><body><LanguageProvider language={language}><ThemeProvider><PwaProvider>
     <a href="#main" className="skip-link"><I18nText text={"Перейти к содержимому"}/></a>
     <header className="site-header"><Link href="/" className="brand" aria-label="Clio — главная"><Clapperboard size={23} aria-hidden /> clio<span className="brand-dot">.</span></Link><IconLink href="/notifications" label="Уведомления" icon="bell"/></header>
-    <div className="app-shell"><SiteNavigation /><main id="main">{children}</main></div>
+    <div className="app-shell"><SiteNavigation /><main id="main">{children}<footer className="privacy-footer">Учебный проект · Кыргызстан · сервер во Франции · <Link href="/privacy">Конфиденциальность</Link></footer></main></div>
   </PwaProvider></ThemeProvider></LanguageProvider></body></html>;
 }

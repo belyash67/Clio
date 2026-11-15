@@ -2,7 +2,8 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { username } from "better-auth/plugins";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { privacyEvidence, validPrivacyConsent } from "@/lib/privacy";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db";
 import * as schema from "@/server/db/schema";
@@ -18,6 +19,11 @@ function createAuth() {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: [new URL(env.BETTER_AUTH_URL).origin],
+    hooks: { before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === "/sign-up/email" && !validPrivacyConsent(ctx.body)) {
+        throw new APIError("BAD_REQUEST", { code: "PRIVACY_CONSENT_REQUIRED", message: "Прочитай политику и подтверди обработку и зарубежную передачу данных." });
+      }
+    }) },
     // Database errors can contain personal fields or password hashes. Do not log raw arguments.
     logger: {level:"error",log:(level)=>{if(level==="error")console.error("Clio auth: internal authentication error (details withheld).");}},
     database: drizzleAdapter(db, { provider: "pg", schema, transaction: true }),
@@ -34,7 +40,12 @@ function createAuth() {
     },
     session: { expiresIn: 60 * 60 * 24 * 7, cookieCache: { enabled: false } },
     user: {
-      additionalFields: { bio: { type: "string", defaultValue: "", input: false }, personalBadge:{type:"boolean",defaultValue:false,input:false} },
+      additionalFields: {
+        bio: { type: "string", defaultValue: "", input: false }, personalBadge:{type:"boolean",defaultValue:false,input:false},
+        consentVersion: { type: "string", required: false, input: false, returned: false },
+        consentAcceptedAt: { type: "date", required: false, input: false, returned: false },
+        consentSnapshot: { type: "string", required: false, input: false, returned: false },
+      },
       changeEmail: { enabled: true, sendChangeEmailConfirmation: async ({user,url}) => { await sendAuthMail(user.email,url,"change"); } },
       deleteUser: { enabled: true, beforeDelete: async (user) => { await db.delete(schema.verification).where(or(eq(schema.verification.identifier,user.email),eq(schema.verification.value,user.id))); } },
     },
@@ -57,12 +68,13 @@ function createAuth() {
       if (!account || account.blockedAt) throw new APIError("FORBIDDEN",{message:"Аккаунт недоступен."});
       return {data:value};
     } } }, user: {
-      create: { before: async (value) => {
+      create: { before: async (value, context) => {
+        if (!validPrivacyConsent(context?.body)) throw new APIError("BAD_REQUEST", { code: "PRIVACY_CONSENT_REQUIRED", message: "Нужно явное подтверждение текущей политики." });
         const parsedUsername = usernameSchema.safeParse((value as typeof value & { username?: string }).username);
         if (!parsedUsername.success || !value.name.trim() || value.name.trim().length > 60) {
           throw new APIError("BAD_REQUEST", { message: "Проверь имя и username." });
         }
-        return { data: { ...value, email: value.email.trim().toLowerCase(), name: value.name.trim(), username: parsedUsername.data } };
+        return { data: { ...value, email: value.email.trim().toLowerCase(), name: value.name.trim(), username: parsedUsername.data, ...privacyEvidence() } };
       } },
       update: { before: async (value) => {
         if (value.name !== undefined && (!value.name.trim() || value.name.trim().length > 60)) {

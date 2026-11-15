@@ -154,6 +154,7 @@ test("каталог: фильтры, сериалы, люди, аниме и в
   await page.locator(".people-list a").filter({ hasText: /Nolan|Нолан/ }).first().click(); await expect(page).toHaveURL(/\/people\//); await expect(page.locator(".media-card").first()).toBeVisible();
   await page.goto("/catalog?type=movie&animation=anime"); await expect(page.locator(".media-card").first()).toBeVisible();
   await page.goto("/register"); await page.locator('[name="name"]').fill("QA validation"); await page.locator('[name="username"]').fill("qa_validation"); await page.locator('[name="email"]').fill("qa_validation@example.invalid");
+  await page.locator('[name="processingConsent"]').check(); await page.locator('[name="transferConsent"]').check();
   await page.locator('[name="password"]').fill("qa-password-one"); await page.locator('[name="confirmPassword"]').fill("qa-password-two"); await page.getByRole("button", { name: "Создать аккаунт", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Пароли не совпадают.");
 });

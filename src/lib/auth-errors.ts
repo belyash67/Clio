@@ -1,4 +1,5 @@
 export function authErrorMessage(error: { status?: number; code?: string }) {
+  if (error.code === "PRIVACY_CONSENT_REQUIRED") return "Прочитай политику и подтверди обработку и зарубежную передачу данных. Если страница давно открыта, обнови её.";
   if (error.status === 429) return "Слишком много попыток. Подожди минуту и попробуй снова.";
   if (error.status === 503) return "Вход и регистрация временно недоступны. Попробуй позже.";
   if (error.status && error.status >= 500) return "На сервере возникла ошибка. Попробуй позже — менять пароль не нужно.";
